@@ -1,0 +1,329 @@
+# esphome and esp32 options from https://github.com/nickolay/esphome-lilygo-t547plus
+esphome:
+  name: lilygo-${room}
+  platformio_options:
+    # Unless noted otherwise, based on https://github.com/Xinyuan-LilyGO/LilyGo-EPD47/blob/1eb6119fc31fcff7a6bafecb09f4225313859fc5/examples/demo/platformio.ini#L37
+    upload_speed: 921600
+    monitor_speed: 115200
+    board_build.mcu: esp32s3
+    board_build.f_cpu: 240000000L
+    board_build.arduino.memory_type: qspi_opi
+    board_build.flash_size: 16MB
+    board_build.flash_mode: qio
+    board_build.flash_type: qspi
+    board_build.psram_type: opi
+    board_build.memory_type: qspi_opi
+    board_build.boot_freq: 80m
+    platform_packages:
+      - "toolchain-riscv32-esp @8.4.0+2021r2-patch5"
+    build_flags:  # the first three defines are required for the screen library to function.
+      - "-DBOARD_HAS_PSRAM"
+      - "-DARDUINO_RUNNING_CORE=0"  # TODO: this conflicts with the value from platformio's idedata, spewing a lot of warnings during the build.
+      - "-DARDUINO_EVENT_RUNNING_CORE=0"  # and this too
+      # In addition to lilygo's settings:
+      # To enable reading logs over USB until `hardware_uart: USB_CDC` support
+      # is added to `logger:`, as detailed in <https://github.com/esphome/feature-requests/issues/1906>:
+      - "-DARDUINO_USB_MODE=1"
+      - "-DARDUINO_USB_CDC_ON_BOOT=1"
+
+esp32:
+  variant: esp32s3
+  board: esp32-s3-devkitc-1
+
+  framework:
+    type: arduino
+    # Just like in <https://community.home-assistant.io/t/enable-usb-cdc-to-log-hello-world-to-esp32-s3-dev-board-for-esphome/463164/10>
+    # I had problems with newer versions; the following combination happens to work, so using it for now.
+    version: 2.0.3
+    platform_version: 5.1.1
+
+logger:
+  level: VERBOSE
+  # hardware_uart: USB_CDC  # see note about <https://github.com/esphome/feature-requests/issues/1906> above
+
+# Enable Home Assistant API
+api:
+  password: !secret api_ota_password
+ota:
+  password: !secret api_ota_password
+wifi: !include wifi-secrets.yaml
+
+binary_sensor:
+  - platform: gpio
+    pin: 
+      number: GPIO21 #was GPIO39 on the previous board
+      inverted: true
+    name: "Button 1"
+    on_press:
+      - logger.log: PhysButton Pressed
+
+external_components:
+  - source: github://nickolay/esphome-lilygo-t547plus
+    components: ["t547"]
+
+time:
+  - platform: homeassistant
+    id: ntp
+    on_time:
+      - seconds: 0
+        then:
+          - component.update: lilygo_display
+
+font:
+  - file: "fonts/GoogleSans-Medium.ttf"
+    id: font_72
+    size: 72
+  - file: "fonts/GoogleSans-Medium.ttf"
+    id: font_120
+    size: 120
+  - file: "fonts/GoogleSans-Medium.ttf"
+    id: font_48
+    size: 48
+    glyphs: "!\"%()+=,-_.:°/?&0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz"
+  - file: "fonts/GoogleSans-Medium.ttf"
+    id: font_32
+    size: 32
+    glyphs: "!\"%()+=,-_.:°/?&|0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz"
+  - file: "fonts/GoogleSans-Medium.ttf"
+    id: font_148
+    size: 148
+  # https://pictogrammers.github.io/@mdi/font/5.3.45/
+  - file: 'fonts/materialdesignicons-webfont.ttf'
+    id: font_weather_icons
+    size: 120
+    glyphs: [
+        "\U000F0594", # clear-night
+        "\U000F0590", # cloudy
+        "\U000F0595", # partlycloudy
+        "\U000F0591", # fog      
+        "\U000F0592", # hail
+        "\U000F0593", # lightning
+        "\U000F067E", # lightning-rainy
+        "\U000F0596", # pouring
+        "\U000F0597", # rainy
+        "\U000F0F36", # snowy
+        "\U000F067F", # snowy-rainy
+        "\U000F0599", # sunny
+        "\U000F059D", # windy
+        "\U000F059E", # windy-variant
+        "\U000F0F38", # exceptional
+        "\U000F0AD4", # music-circle-outline
+        "\U000F0996", # progress-clock
+    ]
+  - file: 'fonts/materialdesignicons-webfont.ttf'
+    id: font_weather_icons_72
+    size: 72
+    glyphs: [
+        "\U000F054B", # umbrella-outline
+    ]
+  - file: 'fonts/materialdesignicons-webfont.ttf'
+    id: font_weather_icons_192
+    size: 192
+    glyphs: [
+        "\U000F07D0", # home-assistant
+    ]
+
+sensor:
+  - platform: homeassistant
+    entity_id: sensor.met_office_enfield_temperature_3_hourly
+    id: home_weather_temp
+    internal: true
+  - platform: homeassistant
+    entity_id: sensor.met_office_enfield_probability_of_precipitation_3_hourly
+    id: home_weather_pop
+    internal: true
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      id: device_ip
+      internal: true
+      on_value: 
+        then:
+          - component.update: lilygo_display
+    ssid:
+      id: device_ssid
+      internal: true
+      on_value: 
+        then:
+          - component.update: lilygo_display
+
+  - platform: homeassistant
+    entity_id: sensor.met_office_enfield_weather_3_hourly
+    id: home_weather_condition
+    internal: true
+
+  - platform: homeassistant
+    entity_id: media_player.${room}
+    attribute: friendly_name
+    id: sonos_name
+    internal: true
+    filters:
+      - to_upper:
+  - platform: homeassistant
+    entity_id: media_player.${room}
+    id: sonos_state
+    internal: true
+    on_value: 
+      then:
+        - component.update: lilygo_display
+  - platform: homeassistant
+    entity_id: media_player.${room}
+    attribute: media_title
+    id: sonos_title
+    internal: true
+    on_value: 
+      then:
+        - component.update: lilygo_display
+  - platform: homeassistant
+    entity_id: media_player.${room}
+    attribute: media_artist
+    id: sonos_artist
+    internal: true
+  - platform: homeassistant
+    entity_id: media_player.${room}
+    attribute: media_playlist
+    id: sonos_playlist
+    internal: true
+  - platform: homeassistant
+    entity_id: media_player.${room}
+    attribute: group_members
+    id: sonos_group
+    internal: true
+
+display:
+  - platform: t547
+    id: lilygo_display
+    # rotation: 180
+    update_interval: 3600s
+    # full_update_every: 5 # optional (default:  1): 0 - never, 1 (default) - every, 2+ - throttled   
+    lambda: |-
+      #include <string>
+      #define XRES 960
+      #define YRES 540
+
+      #define YSTART 50
+      #define YWEATHER YSTART + 20
+      #define ICON_DIFF 15
+      
+      #define SONOS_X 50
+      #define SONOS_Y (YRES / 2) + 90
+
+
+      if (id(home_weather_condition).state == "") {
+        // Loading
+        it.printf(70, YSTART + 130, id(font_weather_icons_192), "\U000F07D0");
+        it.printf(300, YSTART + 140, id(font_72), "Connecting to");
+        it.printf(300, YSTART + 220, id(font_72), "Home Assistant...");
+
+        std::string ssid = id(device_ssid).state;
+        if (ssid == "") {
+          ssid = "No SSID";
+        }
+        std::string ip_addr = id(device_ip).state;
+        if (ip_addr == "") {
+          ip_addr = "No IP";
+        }
+
+        it.printf(XRES - 10, YRES - 10, id(font_32), TextAlign::BOTTOM_RIGHT, "%s | %s | %s", 
+                  App.get_name().c_str(), ssid.c_str(), ip_addr.c_str());
+      } else {
+        // Date and Time
+        it.strftime(XRES/4, YSTART, id(font_72), TextAlign::TOP_CENTER, "%a %d %b", id(ntp).now());
+        it.strftime(XRES/4, YSTART + 70, id(font_148), TextAlign::TOP_CENTER, "%H:%M", id(ntp).now());
+
+        // Weather Icon
+        std::string weather;
+        if (id(home_weather_condition).state == "clear-night") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F0594");
+        }
+        if (id(home_weather_condition).state == "cloudy") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F0590");
+        }
+        if (id(home_weather_condition).state == "partlycloudy") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F0595");
+        }
+        if (id(home_weather_condition).state == "fog") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F0591");
+        }
+        if (id(home_weather_condition).state == "hail") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F0592");
+        }
+        if (id(home_weather_condition).state == "lightning") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F0593");
+        }
+        if (id(home_weather_condition).state == "lightning-rainy") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F067E");
+        }
+        if (id(home_weather_condition).state == "pouring") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F0596");
+        }
+        if (id(home_weather_condition).state == "rainy") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F0597");
+        }
+        if (id(home_weather_condition).state == "snowy") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F0F36");
+        }
+        if (id(home_weather_condition).state == "snowy-rainy") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F067F");
+        }
+        if (id(home_weather_condition).state == "sunny") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F0599");
+        }
+        if (id(home_weather_condition).state == "windy") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F059D");
+        }
+        if (id(home_weather_condition).state == "windy-variant") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F059E");
+        }
+        if (id(home_weather_condition).state == "exceptional") {
+          it.printf(XRES/2 + 30, YWEATHER, id(font_weather_icons), "\U000F0F38");
+        } 
+        
+        // Temperature
+        it.printf(XRES - SONOS_X, YWEATHER - ICON_DIFF, id(font_120), TextAlign::TOP_RIGHT, "%.0f°C", id(home_weather_temp).state);
+
+        // Probability of precipitation
+        it.printf(XRES/2 + 110, YWEATHER + 110 + ICON_DIFF, id(font_weather_icons_72), "\U000F054B");
+        it.printf(XRES/2 + 210, YWEATHER + 110, id(font_72), "%.0f%%", id(home_weather_pop).state);
+
+        // Divider
+        it.filled_rectangle(SONOS_X, SONOS_Y - 35, XRES - (2*SONOS_X), 5);
+
+        // Sonos info
+        it.printf(SONOS_X, SONOS_Y + ICON_DIFF - 5, id(font_weather_icons), "\U000F0AD4");
+
+        std::string group = id(sonos_group).state;
+        ESP_LOGD("custom", "Group is '%s'", group.c_str());
+        if (group == "") {
+            it.printf(SONOS_X + 140, SONOS_Y + 50, id(font_32), "Getting Sonos data...");
+        } else {
+          // To work out if there are others in the group, count the commas in the group string.
+          int other_count = std::count_if(group.begin(), group.end(), [](char c){return c == ',';});
+          if (other_count == 0) {
+            it.printf(SONOS_X + 140, SONOS_Y, id(font_32), id(sonos_name).state.c_str());
+          } else if (other_count == 1) {
+            it.printf(SONOS_X + 140, SONOS_Y, id(font_32), "%s + %d OTHER", id(sonos_name).state.c_str(), other_count);
+          } else {
+            it.printf(SONOS_X + 140, SONOS_Y, id(font_32), "%s + %d OTHERS", id(sonos_name).state.c_str(), other_count);
+          }
+
+          std::string song_title = id(sonos_title).state;
+          ESP_LOGD("custom", "Song title is '%s'", song_title.c_str());
+          if (song_title.length() > 32) {
+            song_title = song_title.substr(0, 28) + "...";
+            ESP_LOGD("custom", "Shortened song title to '%s'", song_title.c_str());
+          }
+
+          if (id(sonos_state).state == "playing") {
+            it.printf(SONOS_X + 140, SONOS_Y + 40, id(font_48), "%s", song_title.c_str());
+            it.printf(SONOS_X + 140, SONOS_Y + 100, id(font_32), "%s", id(sonos_artist).state.c_str());
+            it.printf(XRES - SONOS_X, SONOS_Y, id(font_32), TextAlign::TOP_RIGHT, "%s", id(sonos_playlist).state.c_str());
+          } else {
+            it.printf(SONOS_X + 140, SONOS_Y + 50, id(font_32), "not playing");
+          }
+        }
+
+      }
+
+      

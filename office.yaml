@@ -1,0 +1,4 @@
+substitutions:
+  room: office
+
+<<: !include base.yaml
