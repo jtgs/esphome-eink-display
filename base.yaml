@@ -79,11 +79,11 @@ font:
   - file: "fonts/GoogleSans-Medium.ttf"
     id: font_48
     size: 48
-    glyphs: "!\"%()+=,-_.:°/?&0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz"
+    glyphs: "!\"%()+=,-_.:°/?&|•0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz"
   - file: "fonts/GoogleSans-Medium.ttf"
     id: font_32
     size: 32
-    glyphs: "!\"%()+=,-_.:°/?&|0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz"
+    glyphs: "!\"%()+=,-_.:°/?&|•0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz"
   - file: "fonts/GoogleSans-Medium.ttf"
     id: font_148
     size: 148
@@ -187,6 +187,16 @@ text_sensor:
     internal: true
   - platform: homeassistant
     entity_id: media_player.${room}
+    attribute: media_channel
+    id: sonos_channel
+    internal: true
+  - platform: homeassistant
+    entity_id: media_player.${room}
+    attribute: media_content_id
+    id: sonos_content_id
+    internal: true
+  - platform: homeassistant
+    entity_id: media_player.${room}
     attribute: group_members
     id: sonos_group
     internal: true
@@ -284,7 +294,7 @@ display:
         it.printf(XRES - SONOS_X, YWEATHER - ICON_DIFF, id(font_120), TextAlign::TOP_RIGHT, "%.0f°C", id(home_weather_temp).state);
 
         // Probability of precipitation
-        it.printf(XRES/2 + 110, YWEATHER + 110 + ICON_DIFF, id(font_weather_icons_72), "\U000F054B");
+        it.printf(XRES/2 + 110, YWEATHER + 110 + ICON_DIFF - 5, id(font_weather_icons_72), "\U000F054B");
         it.printf(XRES/2 + 210, YWEATHER + 110, id(font_72), "%.0f%%", id(home_weather_pop).state);
 
         // Divider
@@ -296,7 +306,7 @@ display:
         std::string group = id(sonos_group).state;
         ESP_LOGD("custom", "Group is '%s'", group.c_str());
         if (group == "") {
-            it.printf(SONOS_X + 140, SONOS_Y + 50, id(font_32), "Getting Sonos data...");
+            it.printf(SONOS_X + 140, SONOS_Y + 50, id(font_32), "Fetching Sonos info...");
         } else {
           // To work out if there are others in the group, count the commas in the group string.
           int other_count = std::count_if(group.begin(), group.end(), [](char c){return c == ',';});
@@ -316,9 +326,26 @@ display:
           }
 
           if (id(sonos_state).state == "playing") {
+            ESP_LOGD("custom", "Channel '%s'", id(sonos_channel).raw_state.c_str());
+            ESP_LOGD("custom", "Playlist '%s'", id(sonos_playlist).raw_state.c_str());
             it.printf(SONOS_X + 140, SONOS_Y + 40, id(font_48), "%s", song_title.c_str());
             it.printf(SONOS_X + 140, SONOS_Y + 100, id(font_32), "%s", id(sonos_artist).state.c_str());
-            it.printf(XRES - SONOS_X, SONOS_Y, id(font_32), TextAlign::TOP_RIGHT, "%s", id(sonos_playlist).state.c_str());
+
+            // Tedious bug: the `channel` and `playlist` properties aren't updated when switching between music sources if 
+            // they no longer apply. The Apple Music content URLs are quite distinctive, so match on that and show playlist
+            // otherwise show channel. (This also applies when playing an album, but haven't got a solution to that yet.)
+            if (id(sonos_content_id).state.rfind("x-sonos-http:song", 0) == 0) {
+              it.printf(XRES - SONOS_X, SONOS_Y, id(font_32), TextAlign::TOP_RIGHT, "%s", id(sonos_playlist).state.c_str());
+            } else {
+              // Specific code for BBC Sounds which has long channel titles
+              std::string channel_title = id(sonos_channel).state;
+              std::size_t found_pos = channel_title.find("•");
+              if (found_pos != std::string::npos) {
+                channel_title = channel_title.substr(0, found_pos);
+              }
+
+              it.printf(XRES - SONOS_X, SONOS_Y, id(font_32), TextAlign::TOP_RIGHT, "%s", channel_title.c_str());
+            }
           } else {
             it.printf(SONOS_X + 140, SONOS_Y + 50, id(font_32), "not playing");
           }
