@@ -1,0 +1,4 @@
+substitutions:
+  room: kitchen
+
+<<: !include base.yaml

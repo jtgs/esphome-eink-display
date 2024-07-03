@@ -1,0 +1,4 @@
+substitutions:
+  room: bedroom
+
+<<: !include base.yaml
