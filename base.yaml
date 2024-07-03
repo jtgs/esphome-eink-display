@@ -70,21 +70,21 @@ time:
           - component.update: lilygo_display
 
 font:
-  - file: "fonts/GoogleSans-Medium.ttf"
+  - file: "fonts/SourceSans3-Medium.ttf"
     id: font_72
     size: 72
-  - file: "fonts/GoogleSans-Medium.ttf"
+  - file: "fonts/SourceSans3-Medium.ttf"
     id: font_120
     size: 120
-  - file: "fonts/GoogleSans-Medium.ttf"
+  - file: "fonts/SourceSans3-Medium.ttf"
     id: font_48
-    size: 48
+    size: 54
     glyphs: "!\"%()+=,-_.:°/?&|•0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz"
-  - file: "fonts/GoogleSans-Medium.ttf"
+  - file: "fonts/SourceSans3-Medium.ttf"
     id: font_32
-    size: 32
+    size: 36
     glyphs: "!\"%()+=,-_.:°/?&|•0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz"
-  - file: "fonts/GoogleSans-Medium.ttf"
+  - file: "fonts/SourceSans3-Medium.ttf"
     id: font_148
     size: 148
   # https://pictogrammers.github.io/@mdi/font/5.3.45/
@@ -214,7 +214,7 @@ display:
 
       #define YSTART 50
       #define YWEATHER YSTART + 20
-      #define ICON_DIFF 15
+      #define ICON_DIFF 20
       
       #define SONOS_X 50
       #define SONOS_Y (YRES / 2) + 90
